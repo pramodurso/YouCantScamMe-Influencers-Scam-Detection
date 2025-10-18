@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Video Analyzer (YouTube & Instagram)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f7f9fb;
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        input, button {
+            padding: 10px;
+            margin: 10px 5px 10px 0;
+            font-size: 16px;
+            width: 60%;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        #result {
+            margin-top: 30px;
+            background-color: #fff;
+            padding: 20px;
+            border-left: 5px solid #3498db;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        ul {
+            margin-top: 0;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Video Analyzer (YouTube & Instagram)</h1>
+
+    <div>
+        <label for="youtubeUrl">YouTube Video URL:</label><br>
+        <input type="text" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=...">
+        <button onclick="analyzeYouTube()">Analyze YouTube</button>
+    </div>
+
+    <div>
+        <label for="instagramUrl">Instagram Video URL:</label><br>
+        <input type="text" id="instagramUrl" placeholder="https://www.instagram.com/reel/...">
+        <button onclick="analyzeInstagram()">Analyze Instagram</button>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        async function analyzeVideo(payload, endpoint) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = "Analyzing... Please wait.";
+
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server error: ${response.status} - ${errorText}`);
+                }
+
+                const data = await response.json();
+                const message = data.content || "";
+
+                const rating = message.match(/"rating":\s*(\d)/)?.[1] || "N/A";
+                const reasons = message.match(/"reasons":\s*\[(.*?)\]/s)?.[1]?.split(/",\s*"?/) || [];
+                const sources = message.match(/"sources":\s*\[(.*?)\]/s)?.[1]?.split(/",\s*"?/) || [];
+
+                const clean = arr => arr.map(e => e.replace(/^"?/, '').replace(/"?$/, '')).filter(Boolean);
+
+                resultDiv.innerHTML = `
+                    <p><span class="label">Rating:</span> ${rating} / 5</p>
+                    <p><span class="label">Reasons:</span></p>
+                    <ul>${clean(reasons).map(r => `<li>${r}</li>`).join('')}</ul>
+                    <p><span class="label">Sources:</span></p>
+                    <ul>${clean(sources).map(s => `<li>${s}</li>`).join('')}</ul>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        }
+
+        function analyzeYouTube() {
+            const url = document.getElementById('youtubeUrl').value.trim();
+            if (!url) {
+                alert("Please enter a valid YouTube URL.");
+                return;
+            }
+            analyzeVideo({ url: url }, "youtube_ID");
+        }
+
+        function analyzeInstagram() {
+            const url = document.getElementById('instagramUrl').value.trim();
+            if (!url) {
+                alert("Please enter a valid Instagram URL.");
+                return;
+            }
+            analyzeVideo({ url: url }, "Instagram");
+        }
+    </script>
+</body>
+</html>
